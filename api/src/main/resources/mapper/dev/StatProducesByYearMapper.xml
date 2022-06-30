@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.roy.mapper.StatProducesByYearMapper">
+    <resultMap id="BaseResultMap" type="com.roy.entity.StatProducesByYear">
+        <result column="sum_total_profit_margin" jdbcType="INTEGER" property="totalProfitMargin"/>
+        <result column="annual_expenditure" jdbcType="INTEGER" property="annualExpenditure"/>
+        <result column="return_rate" jdbcType="VARCHAR" property="returnRate"/>
+        <result column="delivery_words" jdbcType="INTEGER" property="deliveryWords"/>
+    </resultMap>
+
+    <select id="findByYear" resultMap="BaseResultMap">
+    SELECT ifnull(t1.sum_total_profit_margin,0) as sum_total_profit_margin,
+    ifnull(t2.annual_expenditure,0) as annual_expenditure, ifnull(t3.return_rate,0) as return_rate,
+    ifnull(t4.delivery_words,0) as delivery_words FROM
+    (
+        (
+        SELECT SUM(ROUND(total_profit_margin,2)) AS sum_total_profit_margin FROM t_order_base
+        WHERE del_state='1' and YEAR(last_edit_time)=YEAR(NOW())
+        ) AS t1,
+        (
+        select (t21.sum_task_money + t22.sum_real_price + t23.sum_cost_subtotal) AS annual_expenditure from
+			(
+				(
+					select ifnull(sum(task_money),0) as sum_task_money from t_inter_task
+					where del_state='1' and YEAR(last_edit_time)=YEAR(NOW())
+					and task_state in(
+						select `value` from t_sys_dictionary where `name` in('已完成','待评价')
+					)
+				) as t21,
+				(
+					select sum(real_price) as sum_real_price from t_order_document
+					where del_state='1' and YEAR(last_edit_time)=YEAR(NOW())
+				) as t22,
+				(
+					select sum(cost_subtotal) as sum_cost_subtotal from t_interpret_project_plan
+					where del_state='1' and YEAR(last_edit_time)=YEAR(NOW())
+				) as t23
+			)
+        ) AS t2,
+		(
+		SELECT ROUND(ct1.return_count/ct2.base_count*100, 2) AS return_rate FROM
+			 (SELECT COUNT(*) AS return_count FROM t_order_doucment_return WHERE del_state='1' and YEAR(last_edit_time)=YEAR(NOW())) ct1,
+			 (SELECT COUNT(*) AS base_count FROM t_order_base WHERE del_state='1' and YEAR(last_edit_time)=YEAR(NOW())) ct2
+		) AS t3,
+		(
+            select (ct3.sum_word_num + ct4.sum_unit_num) AS delivery_words from
+            (
+                (
+                    select ifnull(sum(word_num),0) as sum_word_num from t_order_fast
+                    where del_state='1' and YEAR(last_edit_time)=YEAR(NOW())
+                ) as ct3,
+                (
+                    select ifnull(sum(unit_num),0) as sum_unit_num from t_order_document
+                    where del_state='1' and YEAR(last_edit_time)=YEAR(NOW())
+                ) as ct4
+            )
+		) AS t4
+    )
+    </select>
+
+</mapper>

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.roy.mapper.StatOrdersByRankMapper">
+    <resultMap id="BaseResultMap" type="com.roy.entity.StatOrdersByRank">
+        <result column="stat_channel" jdbcType="VARCHAR" property="statChannel"/>
+        <result column="channel_name" jdbcType="VARCHAR" property="channelName"/>
+        <result column="sum_stat_result" jdbcType="VARCHAR" property="statResult"/>
+    </resultMap>
+
+    <select id="findRankData" resultMap="BaseResultMap">
+    select sum(stat_result) as sum_stat_result, stat_channel,
+        case stat_channel
+            when "1" then "译鱼"
+            when "2" then "代客下单"
+            when "3" then "crm"
+            when "4" then "crm"
+			when "5" then "百度"
+            when "6" then "360"
+            when "7" then "腾讯"
+            when "8" then "公众号"
+        end as channel_name
+    from t_stat_orders
+    where order_type in (${param1}) and stat_type = #{param2} and stat_date &gt;= #{param3} and stat_date &lt;= #{param4}
+    and stat_channel in (${param5})
+    group by channel_name
+    order by sum_stat_result desc
+    limit 0,10
+    </select>
+
+</mapper>

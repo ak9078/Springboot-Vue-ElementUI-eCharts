@@ -1,0 +1,4 @@
+spring:
+  # 环境 dev:开发环境（多库）|test:测试环境（单库）|prod:生产环境
+  profiles:
+    active: dev #激活的配置文件

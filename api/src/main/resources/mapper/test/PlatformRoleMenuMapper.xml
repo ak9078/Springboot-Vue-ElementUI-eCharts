@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.roy.mapper.PlatformRoleMenuMapper">
+    <resultMap id="BaseResultMap" type="com.roy.entity.PlatformRoleMenu">
+        <id column="id" jdbcType="VARCHAR" property="id"/>
+        <result column="role_id" jdbcType="VARCHAR" property="roleId"/>
+        <result column="menu_id" jdbcType="VARCHAR" property="menuId"/>
+        <result column="menu_name" jdbcType="VARCHAR" property="menuName"/>
+        <result column="menu_code" jdbcType="VARCHAR" property="menuCode"/>
+        <result column="p_menu_id" jdbcType="VARCHAR" property="pMenuId"/>
+        <result column="menu_level" jdbcType="VARCHAR" property="menuLevel"/>
+        <result column="menu_url" jdbcType="VARCHAR" property="menuUrl"/>
+        <result column="menu_icon" jdbcType="VARCHAR" property="menuIcon"/>
+        <result column="sort" jdbcType="INTEGER" property="sort"/>
+    </resultMap>
+
+    <select id="findByRoleIds" resultMap="BaseResultMap">
+      select prm.*,pm.* from t_platform_role_menu as prm
+      inner join t_platform_menu as pm on pm.id = prm.menu_id
+      where prm.del_state='1' and prm.role_id in (${value}) and pm.menu_state='1' and pm.del_state='1'
+    </select>
+
+
+</mapper>

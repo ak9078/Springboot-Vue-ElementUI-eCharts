@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.roy.mapper.SysOrganizationMemberMapper">
+    <resultMap id="BaseResultMap" type="com.roy.entity.SysOrganizationMember">
+        <id column="id" jdbcType="VARCHAR" property="id"/>
+        <result column="org_id" jdbcType="VARCHAR" property="orgId"/>
+        <result column="user_id" jdbcType="VARCHAR" property="userId"/>
+        <result column="role_state" jdbcType="VARCHAR" property="roleState"/>
+        <result column="del_state" jdbcType="VARCHAR" property="delState"/>
+        <result column="account_code" jdbcType="VARCHAR" property="accountCode"/>
+    </resultMap>
+
+    <select id="findByOrgId" resultMap="BaseResultMap">
+    select som.*,sa.* from t_sys_organization_member as som
+      inner join t_sys_account as sa on sa.id = som.user_id
+      where som.del_state='1' and som.org_id = #{value} and sa.del_state='1'
+    </select>
+
+    <select id="findByOrgIds" resultMap="BaseResultMap">
+      select som.*,sa.* from t_sys_organization_member as som
+      inner join t_sys_account as sa on sa.id = som.user_id
+      where som.del_state='1' and som.org_id in (${value}) and sa.del_state='1'
+    </select>
+
+    <select id="findRandLimit10" resultMap="BaseResultMap">
+    select som.*,sa.* from t_sys_organization_member as som
+      inner join t_sys_account as sa on sa.id = som.user_id
+      where som.del_state='1' and sa.del_state='1'
+      ORDER BY RAND() LIMIT 10
+    </select>
+
+    <select id="findBySysAccountIds" resultMap="BaseResultMap">
+      select som.*,sa.* from t_sys_organization_member as som
+      inner join t_sys_account as sa on sa.id = som.user_id
+      where som.del_state='1' and som.role_state!='1' and som.user_id in (${value}) and sa.del_state='1'
+    </select>
+
+    <select id="findByTypeCode" resultMap="BaseResultMap">
+    select som.*,sa.* from t_sys_organization_member as som
+        inner join t_sys_account as sa on sa.id = som.user_id
+        where som.del_state='1' and som.org_id in (
+        select id from t_sys_organization where del_state='1' and pid=(
+            SELECT id FROM t_sys_organization where del_state='1' and code = #{value}
+        )
+    ) and sa.del_state='1';
+    </select>
+
+</mapper>

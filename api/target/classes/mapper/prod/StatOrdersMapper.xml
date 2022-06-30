@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.roy.mapper.StatOrdersMapper">
+    <resultMap id="BaseResultMap" type="com.roy.entity.StatOrders">
+        <result column="stat_channel" jdbcType="VARCHAR" property="statChannel"/>
+        <result column="channel_name" jdbcType="VARCHAR" property="channelName"/>
+        <result column="order_type" jdbcType="VARCHAR" property="orderType"/>
+        <result column="stat_type" jdbcType="VARCHAR" property="statType"/>
+        <result column="stat_date" jdbcType="VARCHAR" property="statDate"/>
+        <result column="stat_result" jdbcType="VARCHAR" property="statResult"/>
+    </resultMap>
+
+    <select id="findByChannels" resultMap="BaseResultMap">
+    select stat_channel, order_type, stat_type, stat_date, sum(stat_result) as stat_result,case stat_channel
+            when "1" then "译鱼"
+            when "2" then "代客下单"
+            when "3" then "crm"
+            when "4" then "crm"
+			when "5" then "百度"
+            when "6" then "360"
+            when "7" then "腾讯"
+            when "8" then "公众号"
+        end as channel_name
+    from t_stat_orders
+    where order_type in (${param1}) and stat_type = #{param2} and stat_date &gt;= #{param3} and stat_date &lt;= #{param4}
+    and stat_channel in (${param5})
+    group by order_type, stat_type, stat_date, channel_name
+    </select>
+
+    <!--1：订单额-->
+    <insert id="timingStatistics_1_dd" parameterType="java.lang.String">
+    DELETE FROM t_stat_orders WHERE stat_type='1' AND stat_date = #{param1};
+    INSERT INTO t_stat_orders(stat_channel, order_type, stat_type, stat_date, stat_result)
+    select source as stat_channel, order_type, '1' as stat_type, #{param1} as stat_date, sum(cost_price) as stat_result
+    from translate_core.t_order_base
+    where del_state='1' and Date(last_edit_time) = #{param1}
+    group by source, order_type
+    </insert>
+
+    <!--2：退款率-->
+    <insert id="timingStatistics_2_tk" parameterType="java.lang.String">
+    DELETE FROM t_stat_orders WHERE stat_type='2' AND stat_date = #{param1};
+    INSERT INTO t_stat_orders(stat_channel, order_type, stat_type, stat_date, stat_result)
+    select temp1.source as stat_channel, temp1.order_type, '2' as stat_type, #{param1} as stat_date,
+        ROUND(ifnull(temp1.ct1,0) / ifnull(temp2.ct2,0) * 100, 2) as stat_result
+    from
+        (
+            select count(id) as ct1, source, order_type
+            from translate_core.t_order_base
+            where del_state='1' and order_state in('107','108') and Date(last_edit_time) = #{param1}
+            group by source, order_type
+        ) as temp1
+        left join
+        (
+            select count(id) as ct2, source, order_type
+            from translate_core.t_order_base
+            where del_state='1' and Date(last_edit_time) = #{param1}
+            group by source, order_type
+        ) as temp2 on temp1.source = temp2.source
+    </insert>
+
+    <!--3：超时率-->
+    <insert id="timingStatistics_3_cs" parameterType="java.lang.String">
+    DELETE FROM t_stat_orders WHERE stat_type='3' AND stat_date = #{param1};
+    INSERT INTO t_stat_orders(stat_channel, order_type, stat_type, stat_date, stat_result)
+    select temp1.source as stat_channel, temp1.order_type, '3' as stat_type, #{param1} as stat_date,
+        ROUND(ifnull(temp1.ct1,0) / ifnull(temp2.ct2,0) * 100, 2) as stat_result
+    from
+        (
+            select count(id) as ct1, source, order_type
+            from translate_core.t_order_base
+            where del_state='1' and finish_time_new>finish_time_old and Date(last_edit_time) = #{param1}
+            group by source, order_type
+        ) as temp1
+        left join
+        (
+            select count(id) as ct2, source, order_type
+            from translate_core.t_order_base
+            where del_state='1' and Date(last_edit_time) = #{param1}
+            group by source, order_type
+        ) as temp2 on temp1.source = temp2.source
+    </insert>
+
+    <!--4：利润率-->
+    <insert id="timingStatistics_4_lr" parameterType="java.lang.String">
+    DELETE FROM t_stat_orders WHERE stat_type='4' AND stat_date = #{param1};
+    INSERT INTO t_stat_orders(stat_channel, order_type, stat_type, stat_date, stat_result)
+    select temp1.source as stat_channel, temp1.order_type, '4' as stat_type, #{param1} as stat_date,
+        ROUND(ifnull(temp1.ct1,0) / ifnull(temp2.ct2,0) * 100, 2) as stat_result
+    from
+        (
+            select sum(round(replace(total_profit_margin, '%', ''), 2)) as ct1, source, order_type
+            from translate_core.t_order_base
+            where del_state='1' and order_state in('103','104','105','106') and Date(last_edit_time) = #{param1}
+            group by source, order_type
+        ) as temp1
+        left join
+        (
+            select sum(round(replace(total_profit_margin, '%', ''), 2)) as ct2, source, order_type
+            from translate_core.t_order_base
+            where del_state='1' and Date(last_edit_time) = #{param1}
+            group by source, order_type
+        ) as temp2 on temp1.source = temp2.source
+    </insert>
+
+    <!--5：渠道占比-->
+    <insert id="timingStatistics_5_qd" parameterType="java.lang.String">
+    DELETE FROM t_stat_orders WHERE stat_type='5' AND stat_date = #{param1};
+    INSERT INTO t_stat_orders(stat_channel, order_type, stat_type, stat_date, stat_result)
+    select temp1.source as stat_channel, temp1.order_type, '5' as stat_type, #{param1} as stat_date,
+        ROUND(ifnull(temp1.ct1,0) / ifnull(temp2.ct2,0) * 100, 2) as stat_result
+    from
+        (
+            select count(id) as ct1, source, order_type
+            from translate_core.t_order_base
+            where del_state='1' and Date(last_edit_time) = #{param1}
+            group by source, order_type
+        ) as temp1
+        left join
+        (
+            select count(id) as ct2, source
+            from translate_core.t_order_base
+            where del_state='1' and Date(last_edit_time) = #{param1}
+            group by source
+        ) as temp2 on temp1.source = temp2.source
+    </insert>
+
+</mapper>

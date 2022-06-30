@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.roy.mapper.StatSalesMapper">
+    <resultMap id="BaseResultMap" type="com.roy.entity.StatSales">
+        <result column="account_code" jdbcType="VARCHAR" property="accountCode"/>
+        <result column="group_id" jdbcType="VARCHAR" property="groupId"/>
+        <result column="department_id" jdbcType="VARCHAR" property="departmentId"/>
+        <result column="stat_type" jdbcType="VARCHAR" property="statType"/>
+        <result column="stat_date" jdbcType="VARCHAR" property="statDate"/>
+        <result column="stat_result" jdbcType="VARCHAR" property="statResult"/>
+    </resultMap>
+
+    <select id="findBySysAccountIds" resultMap="BaseResultMap">
+    select
+        temp1.account_code, temp2.id, ifnull(temp2.sys_account_id, temp1.id) as sys_account_id,
+        temp2.group_id, temp2.department_id, ifnull(temp2.stat_type, 1) as stat_type,
+        ifnull(temp2.stat_date, 0) as stat_date, ifnull(temp2.stat_result, 0) as stat_result
+    from
+    (
+        select account_code,id from translate_base.t_sys_account
+        where id in (${param4})
+    ) as temp1
+    left join
+    (
+        select * from t_stat_sales
+        where stat_type = #{param1} and stat_date &gt;= #{param2} and stat_date &lt;= #{param3}
+        and sys_account_id in (${param4})
+        order by stat_date asc
+    ) as temp2 on temp1.id = temp2.sys_account_id
+    </select>
+
+    <!--1：下单额-->
+    <insert id="timingStatistics_1_xd" parameterType="java.lang.String">
+    DELETE FROM t_stat_sales WHERE stat_type='1' AND stat_date = #{param1};
+    INSERT INTO t_stat_sales(sys_account_id, group_id, stat_type, stat_date, stat_result)
+    select temp1.id as sys_account_id, temp1.org_id as group_id, '1' as stat_type,
+        #{param1} as stat_date, ifnull(temp2.sum_cost_price, 0) as stat_result
+    from
+        (
+            select som.org_id, sa.id, sa.account_code from translate_base.t_sys_organization_member as som
+                inner join translate_base.t_sys_account as sa on sa.id = som.user_id
+                where som.del_state='1' and som.org_id in (
+                select id from translate_base.t_sys_organization where del_state='1' and pid=(
+                    SELECT id FROM translate_base.t_sys_organization where del_state='1' and code = 'XS'
+                )
+            ) and sa.del_state='1'
+        ) as temp1
+        left join
+        (
+            select cob.order_create_user_id, sum(od.cost_price) as sum_cost_price
+            from translate_core.t_order_document as od
+            inner join translate_crm.t_crm_order_base as cob on cob.order_no=od.order_no
+            inner join translate_base.t_sys_account as sa on sa.id=cob.order_create_user_id
+            where od.del_state='1' and Date(od.last_edit_time) = #{param1}
+            group by cob.order_create_user_id
+        ) as temp2 on temp1.id = temp2.order_create_user_id
+    </insert>
+
+    <!--2：开票额-->
+    <insert id="timingStatistics_2_kp" parameterType="java.lang.String">
+    DELETE FROM t_stat_sales WHERE stat_type='2' AND stat_date = #{param1};
+    INSERT INTO t_stat_sales(sys_account_id, group_id, stat_type, stat_date, stat_result)
+    select temp1.id as sys_account_id, temp1.org_id as group_id, '2' as stat_type,
+         #{param1} as stat_date, ifnull(temp2.sum_par, 0) as stat_result
+    from
+        (
+            select som.org_id, sa.id, sa.account_code from translate_base.t_sys_organization_member as som
+                inner join translate_base.t_sys_account as sa on sa.id = som.user_id
+                where som.del_state='1' and som.org_id in (
+                select id from translate_base.t_sys_organization where del_state='1' and pid=(
+                    SELECT id FROM translate_base.t_sys_organization where del_state='1' and code = 'XS'
+                )
+            ) and sa.del_state='1'
+        ) as temp1
+        left join
+        (
+            select ci.create_user, sum(ci.par) as sum_par
+            from translate_crm.t_crm_invoice as ci
+            inner join translate_base.t_sys_account as sa on sa.id=ci.create_user
+            where ci.del_state='1' and Date(ci.last_edit_time) = #{param1}
+            group by ci.create_user
+        ) as temp2 on temp1.id = temp2.create_user
+    </insert>
+
+    <!--3：回款额-->
+    <insert id="timingStatistics_3_hk" parameterType="java.lang.String">
+    DELETE FROM t_stat_sales WHERE stat_type='3' AND stat_date = #{param1};
+    INSERT INTO t_stat_sales(sys_account_id, group_id, stat_type, stat_date, stat_result)
+    select temp1.id as sys_account_id, temp1.org_id as group_id, '3' as stat_type,
+        #{param1} as stat_date, ifnull(temp2.sum_returned_money, 0) as stat_result
+    from
+        (
+            select som.org_id, sa.id, sa.account_code from translate_base.t_sys_organization_member as som
+                inner join translate_base.t_sys_account as sa on sa.id = som.user_id
+                where som.del_state='1' and som.org_id in (
+                select id from translate_base.t_sys_organization where del_state='1' and pid=(
+                    SELECT id FROM translate_base.t_sys_organization where del_state='1' and code = 'XS'
+                )
+            ) and sa.del_state='1'
+        ) as temp1
+        left join
+        (
+            select ci.create_user, sum(ci.returned_money) as sum_returned_money
+            from translate_crm.t_crm_invoice as ci
+            inner join translate_base.t_sys_account as sa on sa.id=ci.create_user
+            where ci.del_state='1' and Date(ci.last_edit_time) = #{param1}
+            group by ci.create_user
+        ) as temp2 on temp1.id = temp2.create_user
+    </insert>
+
+    <!--4：超期未回-->
+    <insert id="timingStatistics_4_cq" parameterType="java.lang.String">
+    DELETE FROM t_stat_sales WHERE stat_type='4' AND stat_date = #{param1};
+    INSERT INTO t_stat_sales(sys_account_id, group_id, stat_type, stat_date, stat_result)
+    select temp1.id as sys_account_id, temp1.org_id as group_id, '4' as stat_type,
+         #{param1} as stat_date, ifnull(temp2.sum_returned_money, 0) as stat_result
+    from
+        (
+            select som.org_id, sa.id, sa.account_code from translate_base.t_sys_organization_member as som
+                inner join translate_base.t_sys_account as sa on sa.id = som.user_id
+                where som.del_state='1' and som.org_id in (
+                select id from translate_base.t_sys_organization where del_state='1' and pid=(
+                    SELECT id FROM translate_base.t_sys_organization where del_state='1' and code = 'XS'
+                )
+            ) and sa.del_state='1'
+        ) as temp1
+        left join
+        (
+            select ci.create_user, sum(ci.returned_money) as sum_returned_money
+            from translate_crm.t_crm_invoice as ci
+            inner join translate_base.t_sys_account as sa on sa.id=ci.create_user
+            where ci.del_state='1' and Date(ci.last_edit_time) = #{param1} and ci.returned_state='3'
+            group by ci.create_user
+        ) as temp2 on temp1.id = temp2.create_user
+    </insert>
+
+</mapper>

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.roy.mapper.StatOrdersByYearMapper">
+    <resultMap id="BaseResultMap" type="com.roy.entity.StatOrdersByYear">
+        <result column="cost_price_total" jdbcType="INTEGER" property="costPriceTotal"/>
+        <result column="par_total" jdbcType="INTEGER" property="parTotal"/>
+        <result column="returned_money_total" jdbcType="INTEGER" property="returnedMoneyTotal"/>
+        <result column="delivery_words" jdbcType="INTEGER" property="deliveryWords"/>
+    </resultMap>
+
+    <select id="findByYear" resultMap="BaseResultMap">
+    SELECT ifnull(t1.cost_price_total,0) as cost_price_total, ifnull(t2.par_total,0) as par_total,
+    ifnull(t3.returned_money_total,0) as returned_money_total, ifnull(t4.delivery_words,0) as delivery_words FROM
+    (
+        (
+            SELECT SUM(cost_price) AS cost_price_total FROM t_order_base
+            WHERE del_state='1' and YEAR(last_edit_time)=YEAR(NOW()) and source in(${param1}) and order_type in(${param2})
+        ) AS t1,
+        (
+            select
+			sum(case when cor.orderMoney_change is null then od.amountReceivabless else cor.orderMoney_change end) as par_total
+			from t_order_base as ob
+			left join t_crm_orderpricechange_records as cor on cor.order_id = ob.order_no
+			right join t_order_document as od on od.order_no = ob.order_no
+			where ob.del_state='1' and YEAR(ob.last_edit_time)=YEAR(NOW()) and ob.source in(${param1}) and ob.order_type in(${param2})
+        ) AS t2,
+        (
+            select sum(ci.returned_money) as returned_money_total
+            from t_crm_invoice as ci
+            inner join t_crm_order_invoice as coi on coi.invoice_id = ci.id
+            inner join t_crm_order_base as cob on cob.id = coi.order_id
+            inner join t_order_base as ob on ob.order_no = cob.order_no
+            where ci.del_state='1' and YEAR(ci.last_edit_time)=YEAR(NOW()) and ob.source in(${param1}) and ob.order_type in(${param2})
+        ) AS t3,
+		(
+            select (ct3.sum_word_num + ct4.sum_unit_num) AS delivery_words from
+            (
+                (
+                    select ifnull(sum(word_num),0) as sum_word_num from t_order_fast as of
+					inner join t_order_base as ob on ob.order_no = of.order_no
+                    where of.del_state='1' and YEAR(of.last_edit_time)=YEAR(NOW()) and ob.source in(${param1})
+                ) as ct3,
+                (
+                    select ifnull(sum(unit_num),0) as sum_unit_num from t_order_document as od
+                    inner join t_order_base as ob on ob.order_no = od.order_no
+                    where od.del_state='1' and YEAR(od.last_edit_time)=YEAR(NOW()) and ob.source in(${param1})
+                ) as ct4
+            )
+		) AS t4
+    )
+    </select>
+
+</mapper>

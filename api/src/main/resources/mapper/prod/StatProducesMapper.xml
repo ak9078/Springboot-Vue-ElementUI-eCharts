@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.roy.mapper.StatProducesMapper">
+    <resultMap id="BaseResultMap" type="com.roy.entity.StatProduces">
+        <result column="account_code" jdbcType="VARCHAR" property="accountCode"/>
+        <result column="group_id" jdbcType="VARCHAR" property="groupId"/>
+        <result column="department_id" jdbcType="VARCHAR" property="departmentId"/>
+        <result column="stat_channel" jdbcType="VARCHAR" property="statChannel"/>
+        <result column="order_type" jdbcType="VARCHAR" property="orderType"/>
+        <result column="stat_type" jdbcType="VARCHAR" property="statType"/>
+        <result column="stat_date" jdbcType="VARCHAR" property="statDate"/>
+        <result column="stat_result" jdbcType="VARCHAR" property="statResult"/>
+    </resultMap>
+
+    <!--查全部数据-->
+    <select id="getAllData" resultMap="BaseResultMap">
+    select sa.account_code, sp.id, ifnull(sp.sys_account_id, sa.id) as sys_account_id,
+        sp.group_id, sp.department_id, ifnull(sp.stat_type, 1) as stat_type,
+        ifnull(sp.stat_date, 0) as stat_date, ifnull(sp.stat_result, 0) as stat_result
+    from t_stat_produces as sp
+    inner join translate_base.t_sys_account as sa on sa.id = sp.sys_account_id
+    where stat_channel in (${param1}) and order_type in (${param2}) and stat_type = #{param3}
+        and stat_date &gt;= #{param4} and stat_date &lt;= #{param5}
+        order by stat_date asc
+    </select>
+
+    <select id="findBySysAccountIds" resultMap="BaseResultMap">
+    select
+        temp1.account_code, temp2.id, ifnull(temp2.sys_account_id, temp1.id) as sys_account_id,
+        temp2.group_id, temp2.department_id, ifnull(temp2.stat_type, 1) as stat_type,
+        ifnull(temp2.stat_date, 0) as stat_date, ifnull(temp2.stat_result, 0) as stat_result
+    from
+    (
+        select account_code,id from translate_base.t_sys_account
+        where id in (${param6})
+    ) as temp1
+    left join
+    (
+        select * from t_stat_produces
+        where stat_channel in (${param1}) and order_type in (${param2}) and stat_type = #{param3}
+        and stat_date &gt;= #{param4} and stat_date &lt;= #{param5} and sys_account_id in (${param6})
+        order by stat_date asc
+    ) as temp2 on temp1.id = temp2.sys_account_id
+    </select>
+
+    <!--1：利润率-->
+    <insert id="timingStatistics_1_lr" parameterType="java.lang.String">
+    DELETE FROM t_stat_produces WHERE stat_type='1' AND stat_date = #{param1};
+    INSERT INTO t_stat_produces(sys_account_id, group_id, stat_channel, order_type, stat_type, stat_date, stat_result)
+    select odt.user_id as sys_account_id, som.org_id as group_id, ob.source as stat_channel, ob.order_type,
+        '1' as stat_type, #{param1} as stat_date, sum(round(replace(ob.total_profit_margin, '%', ''), 2)) as stat_result
+    from translate_core.t_order_base as ob
+    inner join translate_core.t_order_doucment_task as odt on odt.order_no = ob.order_no
+    inner join translate_base.t_sys_organization_member as som on som.user_id = odt.user_id
+    where ob.del_state='1' and Date(ob.last_edit_time) = #{param1}
+    group by odt.user_id, som.org_id, ob.source, ob.order_type
+    </insert>
+
+    <!--2：超时时长-->
+    <insert id="timingStatistics_2_cs" parameterType="java.lang.String">
+    DELETE FROM t_stat_produces WHERE stat_type='2' AND stat_date = #{param1};
+    INSERT INTO t_stat_produces(sys_account_id, group_id, stat_channel, order_type, stat_type, stat_date, stat_result)
+    select odt.user_id as sys_account_id, som.org_id as group_id, ob.source as stat_channel, ob.order_type,
+        '2' as stat_type, #{param1} as stat_date, SUM(distinct TIMESTAMPDIFF(HOUR, ob.finish_time_old, ob.finish_time_new)) as stat_result
+    from translate_core.t_order_base as ob
+    inner join translate_core.t_order_doucment_task as odt on odt.order_no = ob.order_no
+    inner join translate_base.t_sys_organization_member as som on som.user_id = odt.user_id
+    where ob.del_state='1' and ob.finish_time_new &gt; ob.finish_time_old and Date(ob.last_edit_time) = #{param1}
+    group by odt.user_id, som.org_id, ob.source, ob.order_type;
+    </insert>
+
+    <!--3：返稿量-->
+    <insert id="timingStatistics_3_fg" parameterType="java.lang.String">
+    DELETE FROM t_stat_produces WHERE stat_type='3' AND stat_date = #{param1};
+    INSERT INTO t_stat_produces(sys_account_id, group_id, stat_channel, order_type, stat_type, stat_date, stat_result)
+    select odt.user_id as sys_account_id, som.org_id as group_id, ob.source as stat_channel, ob.order_type,
+        '3' as stat_type, #{param1} as stat_date, count(odr.order_no) as stat_result
+    from translate_core.t_order_doucment_return as odr
+    inner join translate_core.t_order_base as ob on ob.order_no=odr.order_no
+    inner join translate_core.t_order_doucment_task as odt on odt.order_no = ob.order_no
+    inner join translate_base.t_sys_organization_member as som on som.user_id = odt.user_id
+    where odr.del_state='1' and Date(odr.last_edit_time) = #{param1}
+    group by odt.user_id, som.org_id, ob.source, ob.order_type;
+    </insert>
+
+    <!--4：交付字数-->
+    <insert id="timingStatistics_4_jf" parameterType="java.lang.String">
+    DELETE FROM t_stat_produces WHERE stat_type='4' AND stat_date = #{param1};
+    INSERT INTO t_stat_produces(sys_account_id, group_id, stat_channel, order_type, stat_type, stat_date, stat_result)
+    select temp2.user_id as sys_account_id, temp2.org_id as group_id, temp2.source as stat_channel, temp2.order_type,
+        '4' as stat_type, #{param1} as stat_date,
+        (ifnull(sum(temp1.word_num),0) + ifnull(sum(temp2.unit_num),0)) as stat_result
+    from
+        (
+            select distinct of.id, odt.user_id, som.org_id, ob.source, ob.order_type, of.word_num
+            from translate_core.t_order_fast as of
+            inner join translate_core.t_order_base as ob on ob.order_no=of.order_no
+			inner join translate_core.t_order_doucment_task as odt on odt.order_no = ob.order_no
+            inner join translate_base.t_sys_organization_member as som on som.user_id = odt.user_id
+            where of.del_state='1' and Date(of.last_edit_time) = #{param1}
+        ) as temp1
+        right join
+        (
+            select distinct od.id, odt.user_id, som.org_id, ob.source, ob.order_type, od.unit_num
+            from translate_core.t_order_document as od
+            inner join translate_core.t_order_base as ob on ob.order_no=od.order_no
+			inner join translate_core.t_order_doucment_task as odt on odt.order_no = ob.order_no
+            inner join translate_base.t_sys_organization_member as som on som.user_id = odt.user_id
+            where od.del_state='1' and Date(od.last_edit_time) = #{param1}
+        ) as temp2 on temp1.user_id = temp2.user_id
+    group by temp2.user_id, temp2.org_id, temp2.source, temp2.order_type;
+    </insert>
+
+</mapper>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.roy.mapper.PlatformRoleMapper">
+    <resultMap id="BaseResultMap" type="com.roy.entity.PlatformRole">
+        <id column="id" jdbcType="VARCHAR" property="id"/>
+        <result column="role_code" jdbcType="VARCHAR" property="roleCode"/>
+        <result column="role_name" jdbcType="VARCHAR" property="roleName"/>
+        <result column="role_state" jdbcType="VARCHAR" property="roleState"/>
+        <result column="role_desc" jdbcType="VARCHAR" property="roleDesc"/>
+    </resultMap>
+
+    <select id="findById" resultMap="BaseResultMap">
+      select * from t_platform_role where role_state='1' and del_state='1' and id = #{value} LIMIT 1
+    </select>
+
+    <select id="findByIds" resultMap="BaseResultMap">
+      select * from t_platform_role where role_state='1' and del_state='1' and id in (${value})
+    </select>
+
+    <select id="findByCode" resultMap="BaseResultMap">
+      select * from t_platform_role where role_state='1' and del_state='1' and role_code = #{value} LIMIT 1
+    </select>
+
+    <select id="findAll" resultMap="BaseResultMap">
+    SELECT * FROM t_platform_role where role_state='1' and del_state='1' ORDER BY id DESC
+    </select>
+
+
+</mapper>

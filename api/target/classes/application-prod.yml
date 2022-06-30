@@ -1,0 +1,81 @@
+server:
+  port: 18080
+  use-forward-headers: true
+  undertow:
+    io-threads: 2
+    worker-threads: 36
+    buffer-size: 1024
+    directBuffers: true
+  servlet:
+    session:
+      timeout: 86400
+spring:
+  application:
+    name: SpringbootVue #这个很重要，这在以后的服务与服务之间相互调用一般都是根据这个name
+  transaction:
+    rollback-on-commit-failure: true
+  datasource:
+    dynamic:
+      primary: ds_translate_data_platform # 设置默认的数据源或者数据源组
+      datasource:
+        # translate_data_platform数据源
+        ds_translate_data_platform:
+          url: jdbc:mysql://127.0.0.1:3306/translate_data_platform?characterEncoding=utf8&useSSL=false&allowMultiQueries=true
+          username: aaa
+          password: aaa123456
+          driver-class-name: com.mysql.jdbc.Driver
+        # translate_base数据源
+        ds_translate_base:
+          url: jdbc:mysql://127.0.0.1:3306/translate_base?characterEncoding=utf8&useSSL=false&allowMultiQueries=true
+          username: aaa
+          password: aaa123456
+          driver-class-name: com.mysql.jdbc.Driver
+        # translate_account数据源
+        ds_translate_account:
+          url: jdbc:mysql://127.0.0.1:3306/translate_account?characterEncoding=utf8&useSSL=false&allowMultiQueries=true
+          username: aaa
+          password: aaa123456
+          driver-class-name: com.mysql.jdbc.Driver
+        # translate_crm数据源
+        ds_translate_crm:
+          url: jdbc:mysql://127.0.0.1:3306/translate_crm?characterEncoding=utf8&useSSL=false&allowMultiQueries=true
+          username: aaa
+          password: aaa123456
+          driver-class-name: com.mysql.jdbc.Driver
+        # translate_core数据源
+        ds_translate_core:
+          url: jdbc:mysql://127.0.0.1:3306/translate_core?characterEncoding=utf8&useSSL=false&allowMultiQueries=true
+          username: aaa
+          password: aaa123456
+          driver-class-name: com.mysql.jdbc.Driver
+  devtools:
+    restart:
+      enabled: true
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/prod/**Mapper.xml
+  #实体扫描，多个package用逗号或者分号分隔
+  typeAliasesPackage: com.roy.entity
+  global-config:
+    #主键类型  0:"数据库ID自增", 1:"用户输入ID",2:"全局唯一ID (数字类型唯一ID)", 3:"全局唯一ID UUID";
+    id-type: 0
+    #字段策略 0:"忽略判断",1:"非 NULL 判断"),2:"非空判断"
+    field-strategy: 2
+    #驼峰下划线转换
+    db-column-underline: true
+    #刷新mapper 调试神器
+    refresh-mapper: true
+    #逻辑删除配置（下面3个配置）
+    logic-delete-value: 0
+    logic-not-delete-value: 1
+  configuration:
+    map-underscore-to-camel-case: true
+    cache-enabled: true
+logging:
+  file: ./logs/log.log
+  level:
+    org:
+      springframework:
+        boot:
+          autoconfigure: error
+
